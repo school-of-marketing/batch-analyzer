@@ -1,7 +1,7 @@
 use chrono::Local;
 use clap::Parser;
 use dotenv::dotenv;
-use rand::{distributions::Alphanumeric, Rng};
+use sha2::{Digest, Sha256};
 use std::env;
 use std::fs::{self, File};
 use std::io::{self, BufRead};
@@ -126,35 +126,19 @@ fn main() {
     }
 }
 
-/// Converts a URL into a safe filename with prefix and random string.
-/// Example: "https://www.google.com/search?q=rust" -> "report_www_google_com_search_q_rust_abc123.html"
+/// Converts a URL into a safe filename with prefix and base16 hash of the URL.
+/// Example: "https://www.google.com/search?q=rust" -> "report_a1b2c3d4e5f6.html"
 fn url_to_filename(url: &str, prefix: &str) -> String {
-    let sanitized = url
-        .replace("https://", "")
-        .replace("http://", "")
-        .chars()
-        .map(|c| match c {
-            'a'..='z' | 'A'..='Z' | '0'..='9' | '-' => c,
-            _ => '_',
-        })
-        .collect::<String>();
+    // Generate SHA-256 hash of the URL
+    let mut hasher = Sha256::new();
+    hasher.update(url.as_bytes());
+    let hash_result = hasher.finalize();
 
-    // Generate a random string of 6 characters
-    let random_string: String = rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(6)
-        .map(char::from)
-        .collect();
+    // Convert to hexadecimal string and take first 12 characters for reasonable filename length
+    let hash_hex = format!("{:x}", hash_result);
+    let short_hash = &hash_hex[..12];
 
-    // To avoid overly long filenames, truncate if necessary
-    let max_len = 80; // Reduced to account for prefix and random string
-    let truncated = if sanitized.len() > max_len {
-        &sanitized[..max_len]
-    } else {
-        &sanitized
-    };
-
-    format!("{}_{}__{}.html", prefix, truncated, random_string)
+    format!("{}_{}.html", prefix, short_hash)
 }
 
 /// Reads a file line by line and returns an iterator over the lines.
@@ -178,40 +162,54 @@ mod tests {
     fn test_url_to_filename_basic() {
         let url = "https://www.google.com";
         let result = url_to_filename(url, "test");
-        assert!(result.starts_with("test_www_google_com__"));
+        assert!(result.starts_with("test_"));
         assert!(result.ends_with(".html"));
+        // Should be in format: test_XXXXXXXXXXXX.html (where X is 12-char hex hash)
+        assert_eq!(result.len(), "test_".len() + 12 + ".html".len());
+
+        // Test deterministic behavior - same URL should produce same filename
+        let result2 = url_to_filename(url, "test");
+        assert_eq!(result, result2);
     }
 
     #[test]
     fn test_url_to_filename_with_path() {
         let url = "https://www.example.com/path/to/page";
         let result = url_to_filename(url, "report");
-        assert!(result.starts_with("report_www_example_com_path_to_page__"));
+        assert!(result.starts_with("report_"));
         assert!(result.ends_with(".html"));
+        assert_eq!(result.len(), "report_".len() + 12 + ".html".len());
+
+        // Test deterministic behavior
+        let result2 = url_to_filename(url, "report");
+        assert_eq!(result, result2);
     }
 
     #[test]
     fn test_url_to_filename_with_query_params() {
         let url = "https://www.google.com/search?q=rust&hl=en";
         let result = url_to_filename(url, "test");
-        assert!(result.starts_with("test_www_google_com_search_q_rust_hl_en__"));
+        assert!(result.starts_with("test_"));
         assert!(result.ends_with(".html"));
+        assert_eq!(result.len(), "test_".len() + 12 + ".html".len());
     }
 
     #[test]
     fn test_url_to_filename_http_protocol() {
         let url = "http://example.com/test";
         let result = url_to_filename(url, "myprefix");
-        assert!(result.starts_with("myprefix_example_com_test__"));
+        assert!(result.starts_with("myprefix_"));
         assert!(result.ends_with(".html"));
+        assert_eq!(result.len(), "myprefix_".len() + 12 + ".html".len());
     }
 
     #[test]
     fn test_url_to_filename_special_characters() {
         let url = "https://example.com/path/with-special@chars#fragment";
         let result = url_to_filename(url, "test");
-        assert!(result.starts_with("test_example_com_path_with-special_chars_fragment__"));
+        assert!(result.starts_with("test_"));
         assert!(result.ends_with(".html"));
+        assert_eq!(result.len(), "test_".len() + 12 + ".html".len());
     }
 
     #[test]
@@ -220,20 +218,19 @@ mod tests {
         let url = format!("https://example.com/{}", long_path);
         let result = url_to_filename(&url, "test");
 
-        // Should be truncated and contain prefix and random string
+        // Should only contain prefix and hash, regardless of URL length
         assert!(result.starts_with("test_"));
         assert!(result.ends_with(".html"));
-        assert!(result.contains("example_com_"));
-        // Check that it's not excessively long
-        assert!(result.len() < 150);
+        assert_eq!(result.len(), "test_".len() + 12 + ".html".len());
     }
 
     #[test]
     fn test_url_to_filename_preserves_allowed_chars() {
         let url = "https://sub-domain.example-site.com/path-with-dashes";
         let result = url_to_filename(url, "report");
-        assert!(result.starts_with("report_sub-domain_example-site_com_path-with-dashes__"));
+        assert!(result.starts_with("report_"));
         assert!(result.ends_with(".html"));
+        assert_eq!(result.len(), "report_".len() + 12 + ".html".len());
     }
 
     #[test]
@@ -277,37 +274,62 @@ mod tests {
         // Test empty-ish URL after protocol removal
         let url1 = "https://";
         let result1 = url_to_filename(url1, "test");
-        assert!(result1.starts_with("test___"));
+        assert!(result1.starts_with("test_"));
         assert!(result1.ends_with(".html"));
+        assert_eq!(result1.len(), "test_".len() + 12 + ".html".len());
 
         // Test URL with only domain
         let url2 = "https://a.com";
         let result2 = url_to_filename(url2, "test");
-        assert!(result2.starts_with("test_a_com__"));
+        assert!(result2.starts_with("test_"));
         assert!(result2.ends_with(".html"));
+        assert_eq!(result2.len(), "test_".len() + 12 + ".html".len());
 
         // Test URL with numbers
         let url3 = "https://example123.com/path456";
         let result3 = url_to_filename(url3, "test");
-        assert!(result3.starts_with("test_example123_com_path456__"));
+        assert!(result3.starts_with("test_"));
         assert!(result3.ends_with(".html"));
+        assert_eq!(result3.len(), "test_".len() + 12 + ".html".len());
+
+        // Test that different URLs produce different hashes
+        assert_ne!(result1, result2);
+        assert_ne!(result2, result3);
+        assert_ne!(result1, result3);
     }
 
     #[test]
     fn test_url_to_filename_unicode_characters() {
         let url = "https://example.com/café/naïve";
         let result = url_to_filename(url, "test");
-        // Unicode characters should be replaced with underscores
-        assert!(result.starts_with("test_example_com_caf__na_ve__"));
+        // URL content affects the hash
+        assert!(result.starts_with("test_"));
         assert!(result.ends_with(".html"));
+        assert_eq!(result.len(), "test_".len() + 12 + ".html".len());
     }
 
     #[test]
     fn test_url_to_filename_multiple_consecutive_special_chars() {
         let url = "https://example.com/path///with&&multiple@@special##chars";
         let result = url_to_filename(url, "test");
-        assert!(result.starts_with("test_example_com_path___with__multiple__special__chars__"));
+        assert!(result.starts_with("test_"));
         assert!(result.ends_with(".html"));
+        assert_eq!(result.len(), "test_".len() + 12 + ".html".len());
+    }
+
+    #[test]
+    fn test_url_to_filename_hash_uniqueness() {
+        let url1 = "https://example.com/page1";
+        let url2 = "https://example.com/page2";
+        let result1 = url_to_filename(url1, "test");
+        let result2 = url_to_filename(url2, "test");
+
+        // Different URLs should produce different hashes
+        assert_ne!(result1, result2);
+
+        // Same URL should always produce same hash
+        let result1_again = url_to_filename(url1, "test");
+        assert_eq!(result1, result1_again);
     }
 
     // Integration test helper for creating temporary URLs file
@@ -357,12 +379,20 @@ mod tests {
         for filename in &filenames {
             assert!(filename.starts_with("test_"));
             assert!(filename.ends_with(".html"));
+            // Check that filename has expected length: prefix + underscore + 12 hex chars + .html
+            assert_eq!(filename.len(), "test_".len() + 12 + ".html".len());
         }
 
-        // Check that filenames contain expected URL parts
-        assert!(filenames[0].contains("www_google_com"));
-        assert!(filenames[1].contains("github_com_rust-lang_rust"));
-        assert!(filenames[2].contains("example_com_test_param_value"));
+        // All filenames should be unique due to different URLs producing different hashes
+        let unique_filenames: std::collections::HashSet<_> = filenames.iter().collect();
+        assert_eq!(unique_filenames.len(), filenames.len());
+
+        // Test that same URLs produce same filenames (deterministic)
+        let same_url_filenames: Vec<String> = urls
+            .iter()
+            .map(|url| url_to_filename(url, "test"))
+            .collect();
+        assert_eq!(filenames, same_url_filenames);
 
         // Clean up
         fs::remove_file(&temp_file).expect("Failed to remove test file");
