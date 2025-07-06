@@ -18,6 +18,10 @@ struct Args {
     /// The path to the file containing URLs, one per line.
     #[arg(short, long, default_value = "urls.txt")]
     file: String,
+
+    /// Directory where report folders will be created.
+    #[arg(short, long, default_value = "reports")]
+    reports_dir: String,
 }
 
 fn main() {
@@ -26,13 +30,18 @@ fn main() {
     
     let args = Args::parse();
 
-    // Get the name from command line argument or environment variable
-    let name = match args.name {
-        Some(name) => name,
-        None => {
-            match env::var("BATCH_ANALYZER_NAME") {
-                Ok(env_name) => env_name,
-                Err(_) => {
+    // Get the name from environment variable first, then command line argument
+    let name = match env::var("BATCH_ANALYZER_NAME") {
+        Ok(env_name) => {
+            // If environment variable is set, use it and skip the name flag
+            println!("Using name from environment variable: {}", env_name);
+            env_name
+        },
+        Err(_) => {
+            // If no environment variable, check command line argument
+            match args.name {
+                Some(name) => name,
+                None => {
                     eprintln!("Error: Name is required. Provide it via --name flag or set BATCH_ANALYZER_NAME environment variable in a .env file.");
                     std::process::exit(1);
                 }
@@ -40,14 +49,22 @@ fn main() {
         }
     };
 
-    // --- 1. Create a timestamped output directory ---
+    // --- 1. Create the reports directory and timestamped output directory ---
+    let reports_dir = Path::new(&args.reports_dir);
+    
+    // Create the reports directory if it doesn't exist
+    if !reports_dir.exists() {
+        fs::create_dir_all(reports_dir).expect("Failed to create reports directory");
+        println!("Created reports directory: {}", args.reports_dir);
+    }
+    
     let timestamp = Local::now().format("%Y%m%d_%H%M%S");
     let dir_name = format!("{}_{}", name, timestamp);
-    let output_dir = Path::new(&dir_name);
+    let output_dir = reports_dir.join(&dir_name);
 
     if !output_dir.exists() {
-        fs::create_dir(output_dir).expect("Failed to create directory");
-        println!("Created output directory: {}", dir_name);
+        fs::create_dir(&output_dir).expect("Failed to create output directory");
+        println!("Created output directory: {}", output_dir.display());
     }
 
     // --- 2. Read URLs from the specified file ---
@@ -88,7 +105,7 @@ fn main() {
                 }
             }
         }
-        println!("\nAnalysis complete. Reports are saved in '{}'", dir_name);
+        println!("\nAnalysis complete. Reports are saved in '{}'", output_dir.display());
     } else {
         eprintln!("Error: Could not open or read '{}'. Please make sure the file exists.", urls_file);
     }
