@@ -143,3 +143,193 @@ where P: AsRef<Path>, {
     Ok(io::BufReader::new(file).lines())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::{self, File};
+    use std::io::Write;
+    use std::path::PathBuf;
+    use std::env;
+
+    #[test]
+    fn test_url_to_filename_basic() {
+        let url = "https://www.google.com";
+        let result = url_to_filename(url);
+        assert_eq!(result, "www_google_com.html");
+    }
+
+    #[test]
+    fn test_url_to_filename_with_path() {
+        let url = "https://www.example.com/path/to/page";
+        let result = url_to_filename(url);
+        assert_eq!(result, "www_example_com_path_to_page.html");
+    }
+
+    #[test]
+    fn test_url_to_filename_with_query_params() {
+        let url = "https://www.google.com/search?q=rust&hl=en";
+        let result = url_to_filename(url);
+        assert_eq!(result, "www_google_com_search_q_rust_hl_en.html");
+    }
+
+    #[test]
+    fn test_url_to_filename_http_protocol() {
+        let url = "http://example.com/test";
+        let result = url_to_filename(url);
+        assert_eq!(result, "example_com_test.html");
+    }
+
+    #[test]
+    fn test_url_to_filename_special_characters() {
+        let url = "https://example.com/path/with-special@chars#fragment";
+        let result = url_to_filename(url);
+        assert_eq!(result, "example_com_path_with-special_chars_fragment.html");
+    }
+
+    #[test]
+    fn test_url_to_filename_long_url_truncation() {
+        let long_path = "a".repeat(120);
+        let url = format!("https://example.com/{}", long_path);
+        let result = url_to_filename(&url);
+        
+        // Should be truncated to 100 chars + ".html"
+        assert_eq!(result.len(), 105); // 100 + ".html".len()
+        assert!(result.ends_with(".html"));
+        assert!(result.starts_with("example_com_"));
+    }
+
+    #[test]
+    fn test_url_to_filename_preserves_allowed_chars() {
+        let url = "https://sub-domain.example-site.com/path-with-dashes";
+        let result = url_to_filename(url);
+        assert_eq!(result, "sub-domain_example-site_com_path-with-dashes.html");
+    }
+
+    #[test]
+    fn test_read_lines_existing_file() {
+        // Create a temporary test file
+        let temp_dir = env::temp_dir();
+        let test_file = temp_dir.join("test_urls.txt");
+        
+        {
+            let mut file = File::create(&test_file).expect("Failed to create test file");
+            writeln!(file, "https://www.example1.com").expect("Failed to write to test file");
+            writeln!(file, "https://www.example2.com").expect("Failed to write to test file");
+            writeln!(file, "").expect("Failed to write to test file"); // Empty line
+            writeln!(file, "https://www.example3.com").expect("Failed to write to test file");
+        }
+
+        let lines_result = read_lines(&test_file);
+        assert!(lines_result.is_ok());
+
+        let lines: Vec<String> = lines_result
+            .unwrap()
+            .map(|line| line.unwrap())
+            .collect();
+
+        assert_eq!(lines.len(), 4);
+        assert_eq!(lines[0], "https://www.example1.com");
+        assert_eq!(lines[1], "https://www.example2.com");
+        assert_eq!(lines[2], ""); // Empty line
+        assert_eq!(lines[3], "https://www.example3.com");
+
+        // Clean up
+        fs::remove_file(&test_file).expect("Failed to remove test file");
+    }
+
+    #[test]
+    fn test_read_lines_nonexistent_file() {
+        let nonexistent_file = "/path/that/does/not/exist.txt";
+        let result = read_lines(nonexistent_file);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_url_to_filename_edge_cases() {
+        // Test empty-ish URL after protocol removal
+        let url1 = "https://";
+        let result1 = url_to_filename(url1);
+        assert_eq!(result1, ".html");
+
+        // Test URL with only domain
+        let url2 = "https://a.com";
+        let result2 = url_to_filename(url2);
+        assert_eq!(result2, "a_com.html");
+
+        // Test URL with numbers
+        let url3 = "https://example123.com/path456";
+        let result3 = url_to_filename(url3);
+        assert_eq!(result3, "example123_com_path456.html");
+    }
+
+    #[test]
+    fn test_url_to_filename_unicode_characters() {
+        let url = "https://example.com/café/naïve";
+        let result = url_to_filename(url);
+        // Unicode characters should be replaced with underscores
+        assert_eq!(result, "example_com_caf__na_ve.html");
+    }
+
+    #[test]
+    fn test_url_to_filename_multiple_consecutive_special_chars() {
+        let url = "https://example.com/path///with&&multiple@@special##chars";
+        let result = url_to_filename(url);
+        assert_eq!(result, "example_com_path___with__multiple__special__chars.html");
+    }
+
+    // Integration test helper for creating temporary URLs file
+    fn create_temp_urls_file(urls: &[&str]) -> PathBuf {
+        let temp_dir = env::temp_dir();
+        let test_file = temp_dir.join(format!("test_urls_{}.txt", 
+            std::process::id()));
+        
+        {
+            let mut file = File::create(&test_file).expect("Failed to create test file");
+            for url in urls {
+                writeln!(file, "{}", url).expect("Failed to write to test file");
+            }
+        }
+        
+        test_file
+    }
+
+    #[test]
+    fn test_integration_multiple_urls() {
+        let test_urls = vec![
+            "https://www.google.com",
+            "https://github.com/rust-lang/rust",
+            "http://example.com/test?param=value",
+        ];
+        
+        let temp_file = create_temp_urls_file(&test_urls);
+        
+        // Test that we can read all URLs
+        let lines_result = read_lines(&temp_file);
+        assert!(lines_result.is_ok());
+        
+        let urls: Vec<String> = lines_result
+            .unwrap()
+            .map(|line| line.unwrap().trim().to_string())
+            .filter(|line| !line.is_empty())
+            .collect();
+        
+        assert_eq!(urls.len(), 3);
+        
+        // Test filename generation for each URL
+        let filenames: Vec<String> = urls.iter()
+            .map(|url| url_to_filename(url))
+            .collect();
+        
+        let expected_filenames = vec![
+            "www_google_com.html",
+            "github_com_rust-lang_rust.html",
+            "example_com_test_param_value.html",
+        ];
+        
+        assert_eq!(filenames, expected_filenames);
+        
+        // Clean up
+        fs::remove_file(&temp_file).expect("Failed to remove test file");
+    }
+}
+
