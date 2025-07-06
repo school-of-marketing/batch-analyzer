@@ -2,16 +2,18 @@ use std::fs::{self, File};
 use std::io::{self, BufRead};
 use std::path::Path;
 use std::process::Command;
+use std::env;
 use chrono::Local;
 use clap::Parser;
+use dotenv::dotenv;
 
 /// A simple CLI to run Lighthouse on a list of URLs from a file.
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Name to prefix the output directory.
+    /// Name to prefix the output directory. Can be set via BATCH_ANALYZER_NAME environment variable.
     #[arg(short, long)]
-    name: String,
+    name: Option<String>,
 
     /// The path to the file containing URLs, one per line.
     #[arg(short, long, default_value = "urls.txt")]
@@ -19,11 +21,28 @@ struct Args {
 }
 
 fn main() {
+    // Load environment variables from .env file if it exists
+    dotenv().ok();
+    
     let args = Args::parse();
+
+    // Get the name from command line argument or environment variable
+    let name = match args.name {
+        Some(name) => name,
+        None => {
+            match env::var("BATCH_ANALYZER_NAME") {
+                Ok(env_name) => env_name,
+                Err(_) => {
+                    eprintln!("Error: Name is required. Provide it via --name flag or set BATCH_ANALYZER_NAME environment variable in a .env file.");
+                    std::process::exit(1);
+                }
+            }
+        }
+    };
 
     // --- 1. Create a timestamped output directory ---
     let timestamp = Local::now().format("%Y%m%d_%H%M%S");
-    let dir_name = format!("{}_{}", args.name, timestamp);
+    let dir_name = format!("{}_{}", name, timestamp);
     let output_dir = Path::new(&dir_name);
 
     if !output_dir.exists() {

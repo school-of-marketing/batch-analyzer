@@ -64,6 +64,27 @@ This will:
 - Create a directory named `my-analysis_YYYYMMDD_HHMMSS`
 - Generate Lighthouse reports for each URL
 
+### Using Environment File
+
+You can set default values using a `.env` file instead of always providing command-line arguments:
+
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit the `.env` file:
+   ```
+   BATCH_ANALYZER_NAME=my-default-analysis
+   ```
+
+3. Run without the `--name` flag:
+   ```bash
+   ./target/release/batch_analyzer
+   ```
+
+The tool will automatically use the name from the `.env` file. Command-line arguments take precedence over environment variables.
+
 ### Custom URL File
 
 ```bash
@@ -72,8 +93,14 @@ This will:
 
 ### Command Line Options
 
-- `--name, -n`: **Required** - Name to prefix the output directory
+- `--name, -n`: **Optional** - Name to prefix the output directory (can be set via `BATCH_ANALYZER_NAME` environment variable)
 - `--file, -f`: **Optional** - Path to the file containing URLs (default: `urls.txt`)
+
+### Environment Variables
+
+You can set these in a `.env` file in the project root:
+
+- `BATCH_ANALYZER_NAME`: Default name to prefix output directories
 
 ### URL File Format
 
@@ -154,6 +181,7 @@ cargo clippy
 
 - **clap**: Command-line argument parsing
 - **chrono**: Date and time handling for timestamps
+- **dotenv**: Environment file (.env) loading support
 
 ## Troubleshooting
 
