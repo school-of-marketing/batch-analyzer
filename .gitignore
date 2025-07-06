@@ -23,6 +23,7 @@ target
 # Ignore the .env file
 .env
 
+
 # Ignore the reports directory
 reports/
 
