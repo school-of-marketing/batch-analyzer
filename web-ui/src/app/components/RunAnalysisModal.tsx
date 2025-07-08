@@ -80,7 +80,7 @@ export default function RunAnalysisModal({
 	if (!isOpen) return null;
 
 	return (
-		<div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+		<div className="fixed inset-0 bg-black/70 bg-opacity-50 overflow-y-auto h-full w-full z-50">
 			<div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white dark:bg-gray-800">
 				<div className="mt-3">
 					<div className="flex items-center justify-between mb-4">
@@ -138,7 +138,10 @@ export default function RunAnalysisModal({
 							</label>
 							<div className="space-y-2">
 								{config.urls.map((url, index) => (
-									<div key={index} className="flex items-center space-x-2">
+									<div
+										key={index.toString()}
+										className="flex items-center space-x-2"
+									>
 										<input
 											type="url"
 											value={url}
@@ -245,6 +248,7 @@ export default function RunAnalysisModal({
 											fill="none"
 											viewBox="0 0 24 24"
 										>
+											<title>Loading...</title>
 											<circle
 												className="opacity-25"
 												cx="12"
