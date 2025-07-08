@@ -69,15 +69,47 @@ export default function ReportDetails({ report, onBack }: ReportDetailsProps) {
 	const [sortBy, setSortBy] = useState<PageSortOption>("url");
 	const [filterBy, setFilterBy] = useState<PageFilterOption>("all");
 
+	const handleExportAll = () => {
+		// Create a zip download of all reports in this batch
+		// For now, we'll download each file individually
+		// In a real implementation, you might want to create a zip file
+		alert(`Downloading ${report.reports.length} reports individually...`);
+
+		report.reports.forEach((pageReport, index) => {
+			setTimeout(() => {
+				handleDownloadReport(pageReport.filename);
+			}, index * 500); // Stagger downloads
+		});
+	};
+
+	const handleGenerateSummary = () => {
+		// Generate a summary report
+		// For now, this could open a new page with summary data
+		// or generate a PDF/CSV export
+		alert(
+			"Summary report generation is not yet implemented. This would typically generate a PDF or CSV summary of all the reports.",
+		);
+	};
+
 	const handleViewReport = (filename: string) => {
 		// Open the HTML report via our API route
-		const reportUrl = `/api/reports/${report.name}_${report.timestamp.replace(/[^0-9]/g, "")}/${filename}`;
+		// Convert timestamp "2025-07-07 03:43:47" to "20250707_034347"
+		const formattedTimestamp = report.timestamp
+			.replace(/[-:\s]/g, "")
+			.replace(/(\d{8})(\d{6})/, "$1_$2");
+		const directoryName = `${report.name}_${formattedTimestamp}`;
+		const reportUrl = `/api/reports/${directoryName}/${filename}`;
 		window.open(reportUrl, "_blank");
 	};
 
 	const handleDownloadReport = (filename: string) => {
 		// Download the HTML report via our API route
-		const reportUrl = `/api/reports/${report.name}_${report.timestamp.replace(/[^0-9]/g, "")}/${filename}`;
+		// Convert timestamp "2025-07-07 03:43:47" to "20250707_034347"
+		const formattedTimestamp = report.timestamp
+			.replace(/[-:\s]/g, "")
+			.replace(/(\d{8})(\d{6})/, "$1_$2");
+		const directoryName = `${report.name}_${formattedTimestamp}`;
+		const reportUrl = `/api/reports/${directoryName}/${filename}`;
 		const link = document.createElement("a");
 		link.href = reportUrl;
 		link.download = filename;
@@ -174,6 +206,7 @@ export default function ReportDetails({ report, onBack }: ReportDetailsProps) {
 					<div className="flex space-x-2">
 						<button
 							type="button"
+							onClick={handleExportAll}
 							className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
 						>
 							<svg
@@ -194,6 +227,7 @@ export default function ReportDetails({ report, onBack }: ReportDetailsProps) {
 						</button>
 						<button
 							type="button"
+							onClick={handleGenerateSummary}
 							className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
 						>
 							<svg
