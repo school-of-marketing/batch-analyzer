@@ -5,6 +5,7 @@ import {
 	getDisplayUrl,
 	hasArabicContent,
 } from "../utils/urlUtils";
+import ProgressionAnalysis from "./ProgressionAnalysis";
 
 interface ReportDetailsProps {
 	collection: ReportCollection;
@@ -57,6 +58,7 @@ export default function ReportDetails({
 	const [searchTerm, setSearchTerm] = useState("");
 	const [sortBy, setSortBy] = useState<PageSortOption>("url");
 	const [filterBy, setFilterBy] = useState<PageFilterOption>("all");
+	const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
 
 	const handleExportAll = () => {
 		// Create a zip download of all reports in this batch
@@ -401,7 +403,8 @@ export default function ReportDetails({
 							{filteredAndSortedPages.map((pageReport) => (
 								<tr
 									key={pageReport.filename}
-									className="hover:bg-gray-50 dark:hover:bg-gray-700/20"
+									className={`hover:bg-gray-50 dark:hover:bg-gray-700/20 cursor-pointer ${selectedUrl === pageReport.url ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
+									onClick={() => setSelectedUrl(pageReport.url || null)}
 								>
 									<td className="px-6 py-4 whitespace-nowrap">
 										<div className="flex items-center">
@@ -478,6 +481,13 @@ export default function ReportDetails({
 							))}
 						</tbody>
 					</table>
+				</div>
+
+				<div className="mt-8">
+					<ProgressionAnalysis
+						collection={collection}
+						selectedUrl={selectedUrl}
+					/>
 				</div>
 			</div>
 		</div>
