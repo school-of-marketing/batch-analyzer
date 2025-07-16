@@ -1,3 +1,4 @@
+import type { TooltipProps } from "recharts";
 import {
 	CartesianGrid,
 	Legend,
@@ -22,6 +23,7 @@ interface ChartDataPoint {
 	bestPractices: number;
 	seo: number;
 	overall: number;
+	info?: string;
 }
 
 function ProgressionChart({ data }: { data: ChartDataPoint[] }) {
@@ -40,6 +42,7 @@ function ProgressionChart({ data }: { data: ChartDataPoint[] }) {
 				/>
 				<YAxis domain={[0, 100]} />
 				<Tooltip
+					content={<CustomTooltip />}
 					labelFormatter={(timestamp: string) =>
 						new Date(timestamp).toLocaleString()
 					}
@@ -57,6 +60,37 @@ function ProgressionChart({ data }: { data: ChartDataPoint[] }) {
 			</LineChart>
 		</ResponsiveContainer>
 	);
+}
+
+function CustomTooltip({
+	active,
+	payload,
+	label,
+}: TooltipProps<number, string>) {
+	if (active && payload && payload.length) {
+		const data = payload[0].payload;
+		return (
+			<div className="bg-white dark:bg-gray-800 p-4 border border-gray-200 dark:border-gray-700 rounded shadow-lg">
+				<p className="label font-bold">
+					{new Date(label || "").toLocaleString()}
+				</p>
+				{payload.map((pld) => (
+					<p
+						key={pld.dataKey}
+						style={{ color: pld.color }}
+						className="intro"
+					>{`${pld.name}: ${pld.value}`}</p>
+				))}
+				{data.info && (
+					<pre className="text-xs mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded">
+						{data.info}
+					</pre>
+				)}
+			</div>
+		);
+	}
+
+	return null;
 }
 
 export default function ProgressionAnalysis({
@@ -78,7 +112,7 @@ export default function ProgressionAnalysis({
 	}
 
 	const progressionData: ChartDataPoint[] = collection.runs
-		.map((run) => {
+		.map((run): ChartDataPoint | null => {
 			const report = run.reports.find((r) => r.url === selectedUrl);
 			if (!report) return null;
 			return {
@@ -88,6 +122,7 @@ export default function ProgressionAnalysis({
 				bestPractices: report.metrics?.bestPractices ?? 0,
 				seo: report.metrics?.seo ?? 0,
 				overall: report.score ?? 0,
+				info: run.info,
 			};
 		})
 		.filter((data): data is ChartDataPoint => data !== null)

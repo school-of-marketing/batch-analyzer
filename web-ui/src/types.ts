@@ -18,6 +18,7 @@ export interface ReportRun {
 	full_name: string; // The full directory name
 	reports: ReportFile[];
 	avgScore?: number;
+	info?: string;
 }
 
 // A collection of runs with the same base name
