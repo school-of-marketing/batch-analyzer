@@ -1,4 +1,3 @@
-import type { TooltipProps } from "recharts";
 import {
 	CartesianGrid,
 	Legend,
@@ -62,11 +61,21 @@ function ProgressionChart({ data }: { data: ChartDataPoint[] }) {
 	);
 }
 
-function CustomTooltip({
-	active,
-	payload,
-	label,
-}: TooltipProps<number, string>) {
+interface TooltipPayload {
+	dataKey: string;
+	name: string;
+	value: number;
+	color: string;
+	payload?: ChartDataPoint;
+}
+
+interface CustomTooltipProps {
+	active?: boolean;
+	payload?: TooltipPayload[];
+	label?: string;
+}
+
+function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
 	if (active && payload && payload.length) {
 		const data = payload[0].payload;
 		return (
@@ -81,7 +90,7 @@ function CustomTooltip({
 						className="intro"
 					>{`${pld.name}: ${pld.value}`}</p>
 				))}
-				{data.info && (
+				{data?.info && (
 					<pre className="text-xs mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded">
 						{data.info}
 					</pre>
@@ -145,6 +154,223 @@ export default function ProgressionAnalysis({
 					</div>
 				)}
 			</div>
+
+			{progressionData.length > 0 && (
+				<div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+					<h3 className="text-lg font-semibold mb-4">Performance History</h3>
+					<div className="overflow-x-auto">
+						<table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+							<thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+								<tr>
+									<th scope="col" className="px-6 py-3">
+										Date
+									</th>
+									<th scope="col" className="px-6 py-3">
+										Performance
+									</th>
+									<th scope="col" className="px-6 py-3">
+										Accessibility
+									</th>
+									<th scope="col" className="px-6 py-3">
+										Best Practices
+									</th>
+									<th scope="col" className="px-6 py-3">
+										SEO
+									</th>
+									<th scope="col" className="px-6 py-3">
+										Overall
+									</th>
+									<th scope="col" className="px-6 py-3">
+										Info
+									</th>
+								</tr>
+							</thead>
+							<tbody>
+								{progressionData.map((data, index) => {
+									const isFirst = index === 0;
+									const firstData = progressionData[0];
+									const performanceDiff = isFirst
+										? 0
+										: data.performance - firstData.performance;
+									const accessibilityDiff = isFirst
+										? 0
+										: data.accessibility - firstData.accessibility;
+									const bestPracticesDiff = isFirst
+										? 0
+										: data.bestPractices - firstData.bestPractices;
+									const seoDiff = isFirst ? 0 : data.seo - firstData.seo;
+									const overallDiff = isFirst
+										? 0
+										: data.overall - firstData.overall;
+
+									return (
+										<tr
+											key={data.name}
+											className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+										>
+											<td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+												{new Date(data.name).toLocaleDateString()}
+											</td>
+											<td className="px-6 py-4">
+												<div className="flex items-center gap-2">
+													<span
+														className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+															data.performance >= 90
+																? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+																: data.performance >= 70
+																	? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+																	: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+														}`}
+													>
+														{data.performance}
+													</span>
+													{!isFirst && (
+														<span
+															className={`text-xs ${
+																performanceDiff > 0
+																	? "text-green-600 dark:text-green-400"
+																	: performanceDiff < 0
+																		? "text-red-600 dark:text-red-400"
+																		: "text-gray-500 dark:text-gray-400"
+															}`}
+														>
+															{performanceDiff > 0 ? "+" : ""}
+															{performanceDiff}
+														</span>
+													)}
+												</div>
+											</td>
+											<td className="px-6 py-4">
+												<div className="flex items-center gap-2">
+													<span
+														className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+															data.accessibility >= 90
+																? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+																: data.accessibility >= 70
+																	? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+																	: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+														}`}
+													>
+														{data.accessibility}
+													</span>
+													{!isFirst && (
+														<span
+															className={`text-xs ${
+																accessibilityDiff > 0
+																	? "text-green-600 dark:text-green-400"
+																	: accessibilityDiff < 0
+																		? "text-red-600 dark:text-red-400"
+																		: "text-gray-500 dark:text-gray-400"
+															}`}
+														>
+															{accessibilityDiff > 0 ? "+" : ""}
+															{accessibilityDiff}
+														</span>
+													)}
+												</div>
+											</td>
+											<td className="px-6 py-4">
+												<div className="flex items-center gap-2">
+													<span
+														className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+															data.bestPractices >= 90
+																? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+																: data.bestPractices >= 70
+																	? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+																	: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+														}`}
+													>
+														{data.bestPractices}
+													</span>
+													{!isFirst && (
+														<span
+															className={`text-xs ${
+																bestPracticesDiff > 0
+																	? "text-green-600 dark:text-green-400"
+																	: bestPracticesDiff < 0
+																		? "text-red-600 dark:text-red-400"
+																		: "text-gray-500 dark:text-gray-400"
+															}`}
+														>
+															{bestPracticesDiff > 0 ? "+" : ""}
+															{bestPracticesDiff}
+														</span>
+													)}
+												</div>
+											</td>
+											<td className="px-6 py-4">
+												<div className="flex items-center gap-2">
+													<span
+														className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+															data.seo >= 90
+																? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+																: data.seo >= 70
+																	? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+																	: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+														}`}
+													>
+														{data.seo}
+													</span>
+													{!isFirst && (
+														<span
+															className={`text-xs ${
+																seoDiff > 0
+																	? "text-green-600 dark:text-green-400"
+																	: seoDiff < 0
+																		? "text-red-600 dark:text-red-400"
+																		: "text-gray-500 dark:text-gray-400"
+															}`}
+														>
+															{seoDiff > 0 ? "+" : ""}
+															{seoDiff}
+														</span>
+													)}
+												</div>
+											</td>
+											<td className="px-6 py-4">
+												<div className="flex items-center gap-2">
+													<span
+														className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+															data.overall >= 90
+																? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+																: data.overall >= 70
+																	? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+																	: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+														}`}
+													>
+														{data.overall}
+													</span>
+													{!isFirst && (
+														<span
+															className={`text-xs ${
+																overallDiff > 0
+																	? "text-green-600 dark:text-green-400"
+																	: overallDiff < 0
+																		? "text-red-600 dark:text-red-400"
+																		: "text-gray-500 dark:text-gray-400"
+															}`}
+														>
+															{overallDiff > 0 ? "+" : ""}
+															{overallDiff}
+														</span>
+													)}
+												</div>
+											</td>
+											<td className="px-6 py-4">
+												{data.info && (
+													<div className="max-w-xs truncate text-gray-500 dark:text-gray-400">
+														{data.info}
+													</div>
+												)}
+											</td>
+										</tr>
+									);
+								})}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
