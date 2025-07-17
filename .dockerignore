@@ -1,0 +1,4 @@
+target/
+reports_*/
+!reports/
+!urls.txt

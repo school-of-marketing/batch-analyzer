@@ -1,0 +1,8 @@
+{
+	"name": "batch-analyzer",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"start": "cd web-ui && bun run railway"
+	}
+}

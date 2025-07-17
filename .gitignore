@@ -25,7 +25,6 @@ target
 
 
 # Ignore the reports directory
-reports/
 reports_*/
 
 # Ignore the user-specific configuration urls.txt
